@@ -1,31 +1,54 @@
-var DomParser = require('dom-parser');
+var DomParser = require("dom-parser");
 var parser = new DomParser();
-const fetch = require('node-fetch');
+const fetch = require("node-fetch");
+const url =
+  "https://www.amazon.com/Fire-TV-Stick-4K-with-Alexa-Voice-Remote/dp/B079QHML21/ref=gbps_img_s-5_cd34_0d56241e?smid=ATVPDKIKX0DER&pf_rd_p=fd51d8cf-b5df-4144-8086-80096db8cd34&pf_rd_s=slot-5&pf_rd_t=701&pf_rd_i=gb_main&pf_rd_m=ATVPDKIKX0DER&pf_rd_r=4MRB3MB8YTD1TJ7ZRG23";
 
-const amazon = () => {
-    fetch('https://www.amazon.com/dp/B07GG3XXNX/ref=ods_gw_refurb_eg_rvdpro_d?pf_rd_r=B5ZJG41VXFAVRW9QCGR6&pf_rd_p=1cbbf914-510d-499f-bd26-bea531782449&pd_rd_r=66148938-857d-4896-8952-15996874dbb7&pd_rd_w=WkLYi&pd_rd_wg=rVY14&ref_=pd_gw_unk')
-    .then(html => html.text())
-    .then(html => {
-        var dom = parser.parseFromString(html)
-        var [domOuter, domInner] = [grabAndMapByTag(dom, 'outerHTML'),grabAndMapByTag(dom, 'innerHTML')]
-        var domByID = grabByID(dom)
+const parseFromUrl = (url) =>
+  fetch(url)
+    .then((html) => html.text())
+    .then((html) => {
+      var dom = parser.parseFromString(html);
+      // hopefully we can create multi protocols
+      return amazonProtocol(dom);
+    });
 
-        console.log('meta', domOuter('meta'))
+const grabAndMapByTag = (dom, html) => (tag) =>
+  dom.getElementsByTagName(tag).map((m) => m[html]);
 
-        console.log('title', domInner('title'))
+const grabByID = (dom) => (id) => dom.getElementById(id);
 
-       // console.log('img', domOuter('img'))
+const amazonProtocol = (dom) => {
+  var [domOuter, domInner] = [
+    grabAndMapByTag(dom, "outerHTML"),
+    grabAndMapByTag(dom, "innerHTML"),
+  ];
+  var domByID = grabByID(dom);
+  var price = domByID("priceblock_ourprice")
+    ? domByID("priceblock_ourprice").innerHTML
+    : domByID("priceblock_dealprice").innerHTML;
+  var title = domInner("title")[0];
 
-      console.log('price', domByID('priceblock_ourprice').innerHTML)
+  console.log(
+    "img(d-o-h)",
+    domByID("landingImage").getAttribute("data-old-hires")
+  ); // 'data-old-hires' is more reliable than 'src' but they all seem to sometimes fail
+  console.log("img(src)", domByID("landingImage").getAttribute("src"));
+  console.log(
+    "img(d-a-d-i)",
+    domByID("landingImage").getAttribute("data-a-dynamic-image")
+  );
+  // still WIP -----
+  console.log("meta", domOuter("meta"));
+  console.log(
+    "product-Info",
+    domByID("feature-bullets")
+      .innerHTML.split('<span class="a-list-item">')
+      .slice(1, 3)
+  );
+  //           -----
 
-      console.log('img', `${domByID('landingImage').outerHTML.split('src=')[1].split('.jpg')[0]}.jpg`)
+  return { price: price, title: title, image: "WIP", description: "WIP" };
+};
 
-      console.log('product-Info', domByID('feature-bullets').innerHTML.split('<span class="a-list-item">').slice(1,3))
-    })
- }
-  
-const grabAndMapByTag = (dom, html) => (tag) => dom.getElementsByTagName(tag).map((m) => m[html])
-
-const grabByID = (dom) => (id) => dom.getElementById(id)
-
-amazon()
+parseFromUrl(url).then(console.log);
